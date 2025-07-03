@@ -102,7 +102,7 @@ class Storage(base.ResourceBase):
         :returns: A list of `Drive` objects
         :raises: ResourceNotFoundError
         """
-        return [self.get_drive(id_) for id_ in self.drives_identities]
+        return [self.get_drive(id_) for id_ in getattr(self, 'drives_identities', []) or []]
 
     @property
     @utils.cache_it

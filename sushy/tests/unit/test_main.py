@@ -213,6 +213,17 @@ class MainTestCase(base.TestCase):
             self.root._conn, '/redfish/v1/Chassis',
             self.root.redfish_version, self.root.lazy_registries, self.root)
 
+    @mock.patch.object(chassis, 'Chassis', autospec=True)
+    def test_get_chassis_expanded(self, mock_chassis):
+        self.root.get_chassis('/redfish/v1/Chassis/1', expanded=True)
+        mock_chassis.assert_called_once_with(
+            self.root._conn, '/redfish/v1/Chassis/1?$expand=.($levels=1)',
+            self.root.redfish_version, self.root.lazy_registries, self.root)
+
+    def test_get_chassis_expanded_requires_identity(self):
+        self.assertRaises(ValueError, self.root.get_chassis,
+                         identity=None, expanded=True)
+
     @mock.patch.object(fabric, 'Fabric', autospec=True)
     def test_get_fabric(self, mock_fabric):
         self.root.get_fabric('fake-fabric-id')
@@ -556,6 +567,21 @@ class MainTestCase(base.TestCase):
         mock_task_mon.assert_called_once_with(
             self.root._conn, '/TaskService/Task/123',
             self.root.redfish_version, self.root.lazy_registries)
+
+    @mock.patch('sushy.resources.system.storage.storage.StorageCollection', autospec=True)
+    def test_get_storage_expanded(self, mock_storage_collection):
+        self.root.get_storage_expanded('/redfish/v1/Systems/1')
+        mock_storage_collection.assert_called_once_with(
+            self.root._conn, '/redfish/v1/Systems/1/Storage?$expand=.($levels=1)',
+            redfish_version=self.root.redfish_version,
+            registries=self.root.lazy_registries,
+            root=self.root)
+
+    @mock.patch('sushy.resources.system.storage.storage.StorageCollection', autospec=True)
+    def test_get_storage_expanded_error_handling(self, mock_storage_collection):
+        mock_storage_collection.side_effect = Exception('Connection failed')
+        self.assertRaises(exceptions.SushyError, self.root.get_storage_expanded,
+                         '/redfish/v1/Systems/1')
 
 
 class BareMinimumMainTestCase(base.TestCase):

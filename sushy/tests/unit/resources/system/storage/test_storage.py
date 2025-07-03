@@ -119,6 +119,12 @@ class StorageTestCase(base.TestCase):
         self.assertEqual(4, len(all_drives))
         self.assertIsInstance(all_drives[0], drive.Drive.__class__)
 
+    def test_drives_with_none_drives_identities(self):
+        # Test case where drives_identities is None
+        self.storage.drives_identities = None
+        drives = self.storage.drives
+        self.assertEqual([], drives)
+
     def test_storage_controllers(self):
         controllers = self.storage.storage_controllers
         self.assertIsInstance(controllers, list)
