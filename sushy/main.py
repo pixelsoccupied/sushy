@@ -36,12 +36,14 @@ from sushy.resources.sessionservice import sessionservice
 from sushy.resources.system import system
 from sushy.resources.taskservice import taskservice
 from sushy.resources.updateservice import updateservice
+from sushy.resources.system.storage import storage
 from sushy import taskmonitor
 from sushy import utils
 
 LOG = logging.getLogger(__name__)
 
 STANDARD_REGISTRY_PATH = 'standard_registries'
+EXPAND_QUERY = '?$expand=.($levels=1)'
 
 
 class ProtocolFeaturesSupportedField(base.CompositeField):
@@ -285,15 +287,25 @@ class Sushy(base.ResourceBase):
                                          registries=self.lazy_registries,
                                          root=self)
 
-    def get_chassis(self, identity=None):
+    def get_chassis(self, identity=None, expanded=False):
         """Given the identity return a Chassis object
 
-        :param identity: The identity of the Chassis resource. If not given,
+        :param identity: The identity of the Chassis resource. Can be a full path
+            (like "/redfish/v1/Chassis/1") or None for auto-detection. If not given,
             sushy will default to the single available chassis or fail
-            if there appear to be more or less then one Chassis listed.
+            if there appear to be more or less than one Chassis listed.
+        :param expanded: If True, retrieve chassis with additional data (e.g thermal and power)
+            expanded in a single request. When True, identity is required.
         :raises: `UnknownDefaultError` if default system can't be determined.
+        :raises: `ValueError` if expanded=True but identity is None.
         :returns: The Chassis object
         """
+        if expanded and identity is None:
+            raise ValueError("identity is required when expanded=True")
+        
+        if expanded:
+            identity = f'{identity}{EXPAND_QUERY}'
+        
         if identity is None:
             chassis_collection = self.get_chassis_collection()
             listed_chassis = chassis_collection.get_members()
@@ -307,6 +319,24 @@ class Sushy(base.ResourceBase):
         return chassis.Chassis(self._conn, identity,
                                redfish_version=self.redfish_version,
                                registries=self.lazy_registries, root=self)
+
+    def get_storage_expanded(self, system_path):
+        """Get storage collection with all controllers and drives (ref only) expanded
+
+        :param system_path: The full system path (like "/redfish/v1/Systems/1")
+        :returns: StorageCollection object with expanded drives data
+        :raises: Exception if storage expansion fails
+        """
+        storage_url = f'{system_path}/Storage{EXPAND_QUERY}'
+
+        try:
+            return storage.StorageCollection(self._conn, storage_url,
+                                             redfish_version=self.redfish_version,
+                                             registries=self.lazy_registries,
+                                             root=self)
+        except Exception as e:
+            raise exceptions.SushyError(
+                f'Failed to get expanded storage for system {system_path}: {e}')
 
     def get_fabric_collection(self):
         """Get the FabricCollection object
